@@ -164,8 +164,98 @@ func (cc TagUnknownType_9101_ComponentsConfiguration) String() string {
 	return fmt.Sprintf("ComponentsConfiguration<ID=[%s] BYTES=%v>", TagUnknownType_9101_ComponentsConfiguration_Names[cc.ConfigurationId], cc.ConfigurationBytes)
 }
 
-func (uc TagUnknownType_9101_ComponentsConfiguration) ValueBytes() (value []byte, err error) {
-	return uc.ConfigurationBytes, nil
+func (cc TagUnknownType_9101_ComponentsConfiguration) ValueBytes() (value []byte, err error) {
+	return cc.ConfigurationBytes, nil
+}
+
+type TagUndefinedType_A302_CfaPattern struct {
+	HorizontalRepeat uint16
+	VerticalRepeat   uint16
+	CfaValue         []byte
+}
+
+func (cp TagUndefinedType_A302_CfaPattern) ValueBytes() (value []byte, err error) {
+	defer func() {
+		if state := recover(); state != nil {
+			err = log.Wrap(state.(error))
+		}
+	}()
+
+	// TODO(dustin): Add test.
+
+	// TODO(dustin): !! byteOrder is not in scope here.
+	// -> Clearly, we expect this to be materialized data rather than something that can be changed on the fly.
+	// -> EncodeUndefined() currently has all of the encoding logic embedded in it. It'd be better to move all of the encoding and decoding to the individual types
+	// -> ...which we can then break out to separate files in a subpackage, which will be cleaner and easier to maintain.
+
+	b := new(bytes.Buffer)
+
+	err = binary.Write(b, byteOrder, cp.HorizontalRepeat)
+	log.PanicIf(err)
+
+	err = binary.Write(b, byteOrder, cp.VerticalRepeat)
+	log.PanicIf(err)
+
+	_, err = b.Write(cp.CfaValue)
+	log.PanicIf(err)
+
+	return b.Bytes(), nil
+}
+
+type TagUndefinedType_A20C_SpatialFrequencyResponse struct {
+	Columns     uint16
+	Rows        uint16
+	ColumnNames []string
+	Values      []Rational
+}
+
+func (sfr TagUndefinedType_A20C_SpatialFrequencyResponse) ValueBytes() (value []byte, err error) {
+	defer func() {
+		if state := recover(); state != nil {
+			err = log.Wrap(state.(error))
+		}
+	}()
+
+	// TODO(dustin): Add reciprocal test.
+
+	b := new(bytes.Buffer)
+
+	err = binary.Write(b, byteOrder, sfr.Columns)
+	log.PanicIf(err)
+
+	err = binary.Write(b, byteOrder, sfr.Rows)
+	log.PanicIf(err)
+
+	for _, name := range sfr.ColumnNames {
+		_, err := b.WriteString(name)
+		log.PanicIf(err)
+
+		err = b.WriteByte(0)
+		log.PanicIf(err)
+	}
+
+	ve := NewValueEncoder(byteOrder)
+
+	ed, err := ve.Encode(sfr.Values)
+	log.PanicIf(err)
+
+	_, err = b.Write(ed.Encoded)
+	log.PanicIf(err)
+
+	return b.Bytes(), nil
+}
+
+type TagUndefinedType_8828_OECF struct {
+	Columns     uint16
+	Rows        uint16
+	ColumnNames []string
+	Values      []SignedRational
+}
+
+func (uc TagUndefinedType_8828_OECF) ValueBytes() (value []byte, err error) {
+
+	// TODO(dustin): !! Finish.
+
 }
 
 // TODO(dustin): Rename `EncodeUnknown_9286` to `EncodeUndefined_9286`.
@@ -203,7 +293,8 @@ func EncodeUndefined(ifdPath string, tagId uint16, value interface{}) (ed Encode
 		}
 	}()
 
-	// TODO(dustin): !! Finish implementing these.
+	// TODO(dustin): !! Finish implementing these. This allows us to support writing custom undefined-tag values.
+
 	if ifdPath == IfdPathStandardExif {
 		if tagId == 0x9286 {
 			encoded, err := EncodeUnknown_9286(value.(TagUnknownType_9298_UserComment))
@@ -268,6 +359,7 @@ func UndefinedValue(ifdPath string, tagId uint16, valueContext interface{}, byte
 
 	typeLogger.Debugf(nil, "UndefinedValue: IFD-PATH=[%s] TAG-ID=(0x%02x)", ifdPath, tagId)
 
+	// TODO(dustin): Write unit-tests for all of these
 	if ifdPath == IfdPathStandardExif {
 		if tagId == 0x9000 {
 			// ExifVersion
@@ -368,6 +460,145 @@ func UndefinedValue(ifdPath string, tagId uint16, valueContext interface{}, byte
 			}
 
 			return cc, nil
+		} else if tagId == 0xa302 {
+			// CFAPattern
+
+			// TODO(dustin): Add test using known good data.
+
+			valueContextPtr.SetUnknownValueType(TypeByte)
+
+			valueBytes, err := valueContextPtr.ReadBytes()
+			log.PanicIf(err)
+
+			cp := TagUndefinedType_A302_CfaPattern{}
+
+			cp.HorizontalRepeat = byteOrder.Uint16(valueBytes[0:2])
+			cp.VerticalRepeat = byteOrder.Uint16(valueBytes[2:4])
+
+			expectedLength := int(cp.HorizontalRepeat * cp.VerticalRepeat)
+			cp.CfaValue = valueBytes[4 : 4+expectedLength]
+
+			return cp, nil
+		} else if tagId == 0xa20c {
+			// SpatialFrequencyResponse
+
+			// TODO(dustin): Add test using known good data.
+
+			valueContextPtr.SetUnknownValueType(TypeByte)
+
+			valueBytes, err := valueContextPtr.ReadBytes()
+			log.PanicIf(err)
+
+			sfr := TagUndefinedType_A20C_SpatialFrequencyResponse{}
+
+			sfr.Columns = byteOrder.Uint16(valueBytes[0:2])
+			sfr.Rows = byteOrder.Uint16(valueBytes[2:4])
+
+			columnNames := make([]string, cp.Columns)
+
+			// startAt is where the current column name starts.
+			startAt := 4
+
+			// offset is our current position.
+			offset := 4
+
+			currentColumnNumber := 0
+
+			for currentColumnNumber < cp.Columns {
+				if valueBytes[offset] == 0 {
+					columnName := string(valueBytes[startAt:offset])
+					if len(columnName) == 0 {
+						log.Panicf("SFR column (%d) has zero length", currentColumnNumber)
+					}
+
+					columnNames[currentColumnNumber] = columnName
+					currentColumnNumber++
+
+					offset++
+					startAt = offset
+					continue
+				}
+
+				offset++
+			}
+
+			sfr.ColumnNames = columnNames
+
+			rawRationalBytes := valueBytes[offset:]
+
+			rationalSize := TypeRational.Size()
+			if len(rawRationalBytes)%rationalSize > 0 {
+				log.Panicf("SFR rationals not aligned: (%d) % (%d) > 0", len(rawRationalBytes), rationalSize)
+			}
+
+			rationalCount := len(rawRationalBytes) / rationalSize
+
+			items, err := parser.ParseRationals(rawRationalBytes, rationalCount, byteOrder)
+			log.PanicIf(err)
+
+			sfr.Values = items
+
+			return sfr, nil
+		} else if tagId == 0x8828 {
+			// OECF
+
+			// TODO(dustin): Add test using known good data.
+
+			valueContextPtr.SetUnknownValueType(TypeByte)
+
+			valueBytes, err := valueContextPtr.ReadBytes()
+			log.PanicIf(err)
+
+			oecf := TagUndefinedType_8828_OECF{}
+
+			oecf.Columns = byteOrder.Uint16(valueBytes[0:2])
+			oecf.Rows = byteOrder.Uint16(valueBytes[2:4])
+
+			columnNames := make([]string, cp.Columns)
+
+			// startAt is where the current column name starts.
+			startAt := 4
+
+			// offset is our current position.
+			offset := 4
+
+			currentColumnNumber := 0
+
+			for currentColumnNumber < cp.Columns {
+				if valueBytes[offset] == 0 {
+					columnName := string(valueBytes[startAt:offset])
+					if len(columnName) == 0 {
+						log.Panicf("SFR column (%d) has zero length", currentColumnNumber)
+					}
+
+					columnNames[currentColumnNumber] = columnName
+					currentColumnNumber++
+
+					offset++
+					startAt = offset
+					continue
+				}
+
+				offset++
+			}
+
+			oecf.ColumnNames = columnNames
+
+			rawRationalBytes := valueBytes[offset:]
+
+			rationalSize := TypeSignedRational.Size()
+			if len(rawRationalBytes)%rationalSize > 0 {
+				log.Panicf("OECF signed-rationals not aligned: (%d) % (%d) > 0", len(rawRationalBytes), rationalSize)
+			}
+
+			rationalCount := len(rawRationalBytes) / rationalSize
+
+			items, err := parser.ParseSignedRationals(rawRationalBytes, rationalCount, byteOrder)
+			log.PanicIf(err)
+
+			oecf.Values = items
+
+			return oecf, nil
 		}
 	} else if ifdPath == IfdPathStandardGps {
 		if tagId == 0x001c {
@@ -404,7 +635,7 @@ func UndefinedValue(ifdPath string, tagId uint16, valueContext interface{}, byte
 
 	// TODO(dustin): !! Still need to do:
 	//
-	// complex: 0xa302, 0xa20c, 0x8828
+	// complex: 0x8828
 	// long: 0xa301, 0xa300
 	//
 	// 0xa40b is device-specific and unhandled.
