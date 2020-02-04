@@ -12,7 +12,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 )
 
 var (
@@ -147,22 +147,11 @@ func TestMainJson(t *testing.T) {
 }
 
 func init() {
-	goPath := os.Getenv("GOPATH")
+	cwd, err := os.Getwd()
+	log.PanicIf(err)
 
-	moduleRoot := ""
-	if goPath != "" {
-		moduleRoot = path.Join(goPath, "src", "github.com", "dsoprea", "go-exif")
-	} else {
-		// Module-enabled context.
-
-		currentWd, err := os.Getwd()
-		log.PanicIf(err)
-
-		moduleRoot = path.Join(currentWd, "..")
-	}
-
-	assetsPath = path.Join(moduleRoot, "assets")
-	appFilepath = path.Join(moduleRoot, "exif-read-tool", "main.go")
+	assetsPath = path.Join(cwd, "..", "assets")
+	appFilepath = path.Join(cwd, "main.go")
 
 	testImageFilepath = path.Join(assetsPath, "NDM_8901.jpg")
 }

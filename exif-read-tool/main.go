@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/dsoprea/go-exif"
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
+	"github.com/krak3n/go-exif"
 )
 
 var (

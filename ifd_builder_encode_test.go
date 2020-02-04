@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 )
 
 func Test_ByteWriter_writeAsBytes_uint8(t *testing.T) {

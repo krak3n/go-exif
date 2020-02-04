@@ -8,7 +8,7 @@ import (
 
 	"io/ioutil"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 )
 
 var (
@@ -162,18 +162,10 @@ func validateExifSimpleTestIb(exifData []byte, t *testing.T) {
 func init() {
 	// This will only be executed when we're running tests in this package and
 	// not when this package is being imported from a subpackage.
+	cwd, err := os.Getwd()
+	log.PanicIf(err)
 
-	goPath := os.Getenv("GOPATH")
-	if goPath != "" {
-		assetsPath = path.Join(goPath, "src", "github.com", "dsoprea", "go-exif", "assets")
-	} else {
-		// Module-enabled context.
-
-		currentWd, err := os.Getwd()
-		log.PanicIf(err)
-
-		assetsPath = path.Join(currentWd, "assets")
-	}
+	assetsPath = path.Join(cwd, "assets")
 
 	testImageFilepath = path.Join(assetsPath, "NDM_8901.jpg")
 
@@ -181,7 +173,6 @@ func init() {
 
 	filepath := path.Join(assetsPath, "NDM_8901.jpg.exif")
 
-	var err error
 	testExifData, err = ioutil.ReadFile(filepath)
 	log.PanicIf(err)
 }

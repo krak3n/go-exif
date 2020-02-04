@@ -9,7 +9,7 @@ import (
 	"encoding/binary"
 	"io/ioutil"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 )
 
 const (

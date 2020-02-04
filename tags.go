@@ -3,7 +3,7 @@ package exif
 import (
 	"fmt"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 	"gopkg.in/yaml.v2"
 )
 

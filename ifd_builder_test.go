@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 )
 
 func TestIfdBuilder_Add(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 
 // TODO(dustin): Rename "unknown" in symbol names to "undefined" in the next release.
 //
-// See https://github.com/dsoprea/go-exif/issues/27 .
+// See https://github.com/krak3n/go-exif/issues/27 .
 
 const (
 	TagUnknownType_9298_UserComment_Encoding_ASCII     = iota
@@ -409,7 +409,7 @@ func UndefinedValue(ifdPath string, tagId uint16, valueContext interface{}, byte
 	//
 	// 0xa40b is device-specific and unhandled.
 	//
-	// See https://github.com/dsoprea/go-exif/issues/26.
+	// See https://github.com/krak3n/go-exif/issues/26.
 
 	// We have no choice but to return the error. We have no way of knowing how
 	// much data there is without already knowing what data-type this tag is.

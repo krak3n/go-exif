@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 )
 
 func TestUndefinedValue_ExifVersion(t *testing.T) {
