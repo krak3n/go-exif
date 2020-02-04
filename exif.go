@@ -29,12 +29,6 @@ const (
 var (
 	exifLogger = log.NewLogger("exif.exif")
 
-	// EncodeDefaultByteOrder is the default byte-order for encoding operations.
-	EncodeDefaultByteOrder = binary.BigEndian
-
-	// Default byte order for tests.
-	TestDefaultByteOrder = binary.BigEndian
-
 	BigEndianBoBytes    = [2]byte{'M', 'M'}
 	LittleEndianBoBytes = [2]byte{'I', 'I'}
 
@@ -183,7 +177,7 @@ func ParseExifHeader(data []byte) (eh ExifHeader, err error) {
 }
 
 // Visit recursively invokes a callback for every tag.
-func Visit(rootIfdName string, ifdMapping *IfdMapping, tagIndex *TagIndex, exifData []byte, visitor RawTagVisitor) (eh ExifHeader, err error) {
+func Visit(rootIfdName string, ifdMapping *IfdMapping, tagIndex *TagIndex, exifData []byte, visitor TagVisitorFn) (eh ExifHeader, err error) {
 	defer func() {
 		if state := recover(); state != nil {
 			err = log.Wrap(state.(error))
@@ -195,7 +189,7 @@ func Visit(rootIfdName string, ifdMapping *IfdMapping, tagIndex *TagIndex, exifD
 
 	ie := NewIfdEnumerate(ifdMapping, tagIndex, exifData, eh.ByteOrder)
 
-	err = ie.Scan(rootIfdName, eh.FirstIfdOffset, visitor, true)
+	err = ie.Scan(rootIfdName, eh.FirstIfdOffset, visitor)
 	log.PanicIf(err)
 
 	return eh, nil
@@ -214,7 +208,7 @@ func Collect(ifdMapping *IfdMapping, tagIndex *TagIndex, exifData []byte) (eh Ex
 
 	ie := NewIfdEnumerate(ifdMapping, tagIndex, exifData, eh.ByteOrder)
 
-	index, err = ie.Collect(eh.FirstIfdOffset, true)
+	index, err = ie.Collect(eh.FirstIfdOffset)
 	log.PanicIf(err)
 
 	return eh, index, nil

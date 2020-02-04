@@ -1,4 +1,4 @@
-package exif
+package exifcommon
 
 import (
 	"encoding/binary"
@@ -10,8 +10,8 @@ var (
 	parser *Parser
 )
 
-// ValueContext describes all of the parameters required to find and extract
-// the actual tag value.
+// ValueContext embeds all of the parameters required to find and extract the
+// actual tag value.
 type ValueContext struct {
 	unitCount       uint32
 	valueOffset     uint32
@@ -29,7 +29,10 @@ type ValueContext struct {
 	tagId   uint16
 }
 
-func newValueContext(ifdPath string, tagId uint16, unitCount, valueOffset uint32, rawValueOffset, addressableData []byte, tagType TagTypePrimitive, byteOrder binary.ByteOrder) *ValueContext {
+// TODO(dustin): We can update newValueContext() to derive `valueOffset` itself (from `rawValueOffset`).
+
+// newValueContext returns a new ValueContext struct.
+func NewValueContext(ifdPath string, tagId uint16, unitCount, valueOffset uint32, rawValueOffset, addressableData []byte, tagType TagTypePrimitive, byteOrder binary.ByteOrder) *ValueContext {
 	return &ValueContext{
 		unitCount:       unitCount,
 		valueOffset:     valueOffset,
@@ -44,36 +47,50 @@ func newValueContext(ifdPath string, tagId uint16, unitCount, valueOffset uint32
 	}
 }
 
-func newValueContextFromTag(ite *IfdTagEntry, addressableData []byte, byteOrder binary.ByteOrder) *ValueContext {
-	return newValueContext(
-		ite.IfdPath,
-		ite.TagId,
-		ite.UnitCount,
-		ite.ValueOffset,
-		ite.RawValueOffset,
-		addressableData,
-		ite.TagType,
-		byteOrder)
-}
+// SetUndefinedValueType sets the effective type if this is an unknown-type tag.
+func (vc *ValueContext) SetUndefinedValueType(tagType TagTypePrimitive) {
+	if vc.tagType != TypeUndefined {
+		log.Panicf("can not set effective type for unknown-type tag because this is *not* an unknown-type tag")
+	}
 
-func (vc *ValueContext) SetUnknownValueType(tagType TagTypePrimitive) {
 	vc.undefinedValueTagType = tagType
 }
 
+// UnitCount returns the embedded unit-count.
 func (vc *ValueContext) UnitCount() uint32 {
 	return vc.unitCount
 }
 
+// ValueOffset returns the value-offset decoded as a `uint32`.
 func (vc *ValueContext) ValueOffset() uint32 {
 	return vc.valueOffset
 }
 
+// RawValueOffset returns the uninterpreted value-offset. This is used for
+// embedded values (values small enough to fit within the offset bytes rather
+// than needing to be stored elsewhere and referred to by an actual offset).
 func (vc *ValueContext) RawValueOffset() []byte {
 	return vc.rawValueOffset
 }
 
+// AddressableData returns the block of data that we can dereference into.
 func (vc *ValueContext) AddressableData() []byte {
 	return vc.addressableData
+}
+
+// ByteOrder returns the byte-order of numbers.
+func (vc *ValueContext) ByteOrder() binary.ByteOrder {
+	return vc.byteOrder
+}
+
+// IfdPath returns the path of the IFD containing this tag.
+func (vc *ValueContext) IfdPath() string {
+	return vc.ifdPath
+}
+
+// TagId returns the ID of the tag that we represent.
+func (vc *ValueContext) TagId() uint16 {
+	return vc.tagId
 }
 
 // isEmbedded returns whether the value is embedded or a reference. This can't
@@ -85,6 +102,8 @@ func (vc *ValueContext) isEmbedded() bool {
 	return (tagType.Size() * int(vc.unitCount)) <= 4
 }
 
+// effectiveValueType returns the effective type of the unknown-type tag or, if
+// not unknown, the actual type.
 func (vc *ValueContext) effectiveValueType() (tagType TagTypePrimitive) {
 	if vc.tagType == TypeUndefined {
 		tagType = vc.undefinedValueTagType
@@ -99,6 +118,7 @@ func (vc *ValueContext) effectiveValueType() (tagType TagTypePrimitive) {
 	return tagType
 }
 
+// readRawEncoded returns the encoded bytes for the value that we represent.
 func (vc *ValueContext) readRawEncoded() (rawBytes []byte, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -116,6 +136,14 @@ func (vc *ValueContext) readRawEncoded() (rawBytes []byte, err error) {
 	} else {
 		return vc.addressableData[vc.valueOffset : vc.valueOffset+vc.unitCount*unitSizeRaw], nil
 	}
+}
+
+// ReadRawEncoded returns the encoded bytes for the value that we represent.
+func (vc *ValueContext) ReadRawEncoded() (rawBytes []byte, err error) {
+
+	// TODO(dustin): Remove this method and rename readRawEncoded in its place.
+
+	return vc.readRawEncoded()
 }
 
 // Format returns a string representation for the value.
@@ -137,13 +165,13 @@ func (vc *ValueContext) Format() (value string, err error) {
 	rawBytes, err := vc.readRawEncoded()
 	log.PanicIf(err)
 
-	phrase, err := Format(rawBytes, vc.tagType, false, vc.byteOrder)
+	phrase, err := FormatFromBytes(rawBytes, vc.effectiveValueType(), false, vc.byteOrder)
 	log.PanicIf(err)
 
 	return phrase, nil
 }
 
-// FormatOne is similar to `Format` but only gets and stringifies the first
+// FormatFirst is similar to `Format` but only gets and stringifies the first
 // item.
 func (vc *ValueContext) FormatFirst() (value string, err error) {
 	defer func() {
@@ -155,12 +183,13 @@ func (vc *ValueContext) FormatFirst() (value string, err error) {
 	rawBytes, err := vc.readRawEncoded()
 	log.PanicIf(err)
 
-	phrase, err := Format(rawBytes, vc.tagType, true, vc.byteOrder)
+	phrase, err := FormatFromBytes(rawBytes, vc.tagType, true, vc.byteOrder)
 	log.PanicIf(err)
 
 	return phrase, nil
 }
 
+// ReadBytes parses the encoded byte-array from the value-context.
 func (vc *ValueContext) ReadBytes() (value []byte, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -177,6 +206,8 @@ func (vc *ValueContext) ReadBytes() (value []byte, err error) {
 	return value, nil
 }
 
+// ReadAscii parses the encoded NUL-terminated ASCII string from the value-
+// context.
 func (vc *ValueContext) ReadAscii() (value string, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -193,6 +224,8 @@ func (vc *ValueContext) ReadAscii() (value string, err error) {
 	return value, nil
 }
 
+// ReadAsciiNoNul parses the non-NUL-terminated encoded ASCII string from the
+// value-context.
 func (vc *ValueContext) ReadAsciiNoNul() (value string, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -209,6 +242,7 @@ func (vc *ValueContext) ReadAsciiNoNul() (value string, err error) {
 	return value, nil
 }
 
+// ReadShorts parses the list of encoded shorts from the value-context.
 func (vc *ValueContext) ReadShorts() (value []uint16, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -225,6 +259,7 @@ func (vc *ValueContext) ReadShorts() (value []uint16, err error) {
 	return value, nil
 }
 
+// ReadLongs parses the list of encoded, unsigned longs from the value-context.
 func (vc *ValueContext) ReadLongs() (value []uint32, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -241,6 +276,8 @@ func (vc *ValueContext) ReadLongs() (value []uint32, err error) {
 	return value, nil
 }
 
+// ReadRationals parses the list of encoded, unsigned rationals from the value-
+// context.
 func (vc *ValueContext) ReadRationals() (value []Rational, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -257,6 +294,7 @@ func (vc *ValueContext) ReadRationals() (value []Rational, err error) {
 	return value, nil
 }
 
+// ReadSignedLongs parses the list of encoded, signed longs from the value-context.
 func (vc *ValueContext) ReadSignedLongs() (value []int32, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -273,6 +311,8 @@ func (vc *ValueContext) ReadSignedLongs() (value []int32, err error) {
 	return value, nil
 }
 
+// ReadSignedRationals parses the list of encoded, signed rationals from the
+// value-context.
 func (vc *ValueContext) ReadSignedRationals() (value []SignedRational, err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -341,27 +381,6 @@ func (vc *ValueContext) Values() (values interface{}, err error) {
 	return values, nil
 }
 
-// Undefined attempts to identify and decode supported undefined-type fields.
-// This is the primary, preferred interface to reading undefined values.
-func (vc *ValueContext) Undefined() (value interface{}, err error) {
-	defer func() {
-		if state := recover(); state != nil {
-			err = log.Wrap(state.(error))
-		}
-	}()
-
-	value, err = UndefinedValue(vc.ifdPath, vc.tagId, vc, vc.byteOrder)
-	if err != nil {
-		if err == ErrUnhandledUnknownTypedTag {
-			return nil, err
-		}
-
-		log.Panic(err)
-	}
-
-	return value, nil
-}
-
 func init() {
-	parser = &Parser{}
+	parser = new(Parser)
 }

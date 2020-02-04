@@ -1,7 +1,6 @@
 package exif
 
 import (
-	"os"
 	"path"
 	"reflect"
 	"testing"
@@ -9,6 +8,8 @@ import (
 	"io/ioutil"
 
 	"github.com/dsoprea/go-logging"
+
+	"github.com/dsoprea/go-exif/v2/common"
 )
 
 var (
@@ -32,7 +33,7 @@ func getExifSimpleTestIb() *IfdBuilder {
 	log.PanicIf(err)
 
 	ti := NewTagIndex()
-	ib := NewIfdBuilder(im, ti, IfdPathStandard, TestDefaultByteOrder)
+	ib := NewIfdBuilder(im, ti, exifcommon.IfdPathStandard, exifcommon.TestDefaultByteOrder)
 
 	err = ib.AddStandard(0x000b, "asciivalue")
 	log.PanicIf(err)
@@ -43,7 +44,7 @@ func getExifSimpleTestIb() *IfdBuilder {
 	err = ib.AddStandard(0x0100, []uint32{0x33445566})
 	log.PanicIf(err)
 
-	err = ib.AddStandard(0x013e, []Rational{{Numerator: 0x11112222, Denominator: 0x33334444}})
+	err = ib.AddStandard(0x013e, []exifcommon.Rational{{Numerator: 0x11112222, Denominator: 0x33334444}})
 	log.PanicIf(err)
 
 	return ib
@@ -63,7 +64,7 @@ func getExifSimpleTestIbBytes() []byte {
 	log.PanicIf(err)
 
 	ti := NewTagIndex()
-	ib := NewIfdBuilder(im, ti, IfdPathStandard, TestDefaultByteOrder)
+	ib := NewIfdBuilder(im, ti, exifcommon.IfdPathStandard, exifcommon.TestDefaultByteOrder)
 
 	err = ib.AddStandard(0x000b, "asciivalue")
 	log.PanicIf(err)
@@ -74,7 +75,7 @@ func getExifSimpleTestIbBytes() []byte {
 	err = ib.AddStandard(0x0100, []uint32{0x33445566})
 	log.PanicIf(err)
 
-	err = ib.AddStandard(0x013e, []Rational{{Numerator: 0x11112222, Denominator: 0x33334444}})
+	err = ib.AddStandard(0x013e, []exifcommon.Rational{{Numerator: 0x11112222, Denominator: 0x33334444}})
 	log.PanicIf(err)
 
 	ibe := NewIfdByteEncoder()
@@ -103,7 +104,7 @@ func validateExifSimpleTestIb(exifData []byte, t *testing.T) {
 	eh, index, err := Collect(im, ti, exifData)
 	log.PanicIf(err)
 
-	if eh.ByteOrder != TestDefaultByteOrder {
+	if eh.ByteOrder != exifcommon.TestDefaultByteOrder {
 		t.Fatalf("EXIF byte-order is not correct: %v", eh.ByteOrder)
 	} else if eh.FirstIfdOffset != ExifDefaultFirstIfdOffset {
 		t.Fatalf("EXIF first IFD-offset not correct: (0x%02x)", eh.FirstIfdOffset)
@@ -115,9 +116,9 @@ func validateExifSimpleTestIb(exifData []byte, t *testing.T) {
 
 	ifd := index.RootIfd
 
-	if ifd.ByteOrder != TestDefaultByteOrder {
+	if ifd.ByteOrder != exifcommon.TestDefaultByteOrder {
 		t.Fatalf("IFD byte-order not correct.")
-	} else if ifd.IfdPath != IfdStandard {
+	} else if ifd.IfdPath != exifcommon.IfdStandard {
 		t.Fatalf("IFD name not correct.")
 	} else if ifd.Index != 0 {
 		t.Fatalf("IFD index not zero: (%d)", ifd.Index)
@@ -133,8 +134,6 @@ func validateExifSimpleTestIb(exifData []byte, t *testing.T) {
 
 	// Verify the values by using the actual, orginal types (this is awesome).
 
-	addressableData := exifData[ExifAddressableAreaStart:]
-
 	expected := []struct {
 		tagId uint16
 		value interface{}
@@ -142,15 +141,15 @@ func validateExifSimpleTestIb(exifData []byte, t *testing.T) {
 		{tagId: 0x000b, value: "asciivalue"},
 		{tagId: 0x00ff, value: []uint16{0x1122}},
 		{tagId: 0x0100, value: []uint32{0x33445566}},
-		{tagId: 0x013e, value: []Rational{{Numerator: 0x11112222, Denominator: 0x33334444}}},
+		{tagId: 0x013e, value: []exifcommon.Rational{{Numerator: 0x11112222, Denominator: 0x33334444}}},
 	}
 
-	for i, e := range ifd.Entries {
-		if e.TagId != expected[i].tagId {
-			t.Fatalf("Tag-ID for entry (%d) not correct: (0x%02x) != (0x%02x)", i, e.TagId, expected[i].tagId)
+	for i, ite := range ifd.Entries {
+		if ite.TagId() != expected[i].tagId {
+			t.Fatalf("Tag-ID for entry (%d) not correct: (0x%02x) != (0x%02x)", i, ite.TagId(), expected[i].tagId)
 		}
 
-		value, err := e.Value(addressableData, TestDefaultByteOrder)
+		value, err := ite.Value()
 		log.PanicIf(err)
 
 		if reflect.DeepEqual(value, expected[i].value) != true {
@@ -159,29 +158,32 @@ func validateExifSimpleTestIb(exifData []byte, t *testing.T) {
 	}
 }
 
-func init() {
-	// This will only be executed when we're running tests in this package and
-	// not when this package is being imported from a subpackage.
-
-	goPath := os.Getenv("GOPATH")
-	if goPath != "" {
-		assetsPath = path.Join(goPath, "src", "github.com", "dsoprea", "go-exif", "assets")
-	} else {
-		// Module-enabled context.
-
-		currentWd, err := os.Getwd()
-		log.PanicIf(err)
-
-		assetsPath = path.Join(currentWd, "assets")
+func getTestAssetsPath() string {
+	if assetsPath == "" {
+		moduleRootPath := exifcommon.GetModuleRootPath()
+		assetsPath = path.Join(moduleRootPath, "assets")
 	}
 
-	testImageFilepath = path.Join(assetsPath, "NDM_8901.jpg")
+	return assetsPath
+}
 
-	// Load test EXIF data.
+func getTestImageFilepath() string {
+	if testImageFilepath == "" {
+		assetsPath := getTestAssetsPath()
+		testImageFilepath = path.Join(assetsPath, "NDM_8901.jpg")
+	}
 
+	return testImageFilepath
+}
+
+func getTestExifData() []byte {
+	assetsPath := getTestAssetsPath()
 	filepath := path.Join(assetsPath, "NDM_8901.jpg.exif")
 
 	var err error
+
 	testExifData, err = ioutil.ReadFile(filepath)
 	log.PanicIf(err)
+
+	return testExifData
 }

@@ -13,6 +13,9 @@ import (
 	"encoding/binary"
 
 	"github.com/dsoprea/go-logging"
+
+	"github.com/dsoprea/go-exif/v2/common"
+	"github.com/dsoprea/go-exif/v2/undefined"
 )
 
 var (
@@ -94,7 +97,7 @@ type BuilderTag struct {
 	ifdPath string
 
 	tagId  uint16
-	typeId TagTypePrimitive
+	typeId exifcommon.TagTypePrimitive
 
 	// value is either a value that can be encoded, an IfdBuilder instance (for
 	// child IFDs), or an IfdTagEntry instance representing an existing,
@@ -106,7 +109,7 @@ type BuilderTag struct {
 	byteOrder binary.ByteOrder
 }
 
-func NewBuilderTag(ifdPath string, tagId uint16, typeId TagTypePrimitive, value *IfdBuilderTagValue, byteOrder binary.ByteOrder) *BuilderTag {
+func NewBuilderTag(ifdPath string, tagId uint16, typeId exifcommon.TagTypePrimitive, value *IfdBuilderTagValue, byteOrder binary.ByteOrder) *BuilderTag {
 	return &BuilderTag{
 		ifdPath:   ifdPath,
 		tagId:     tagId,
@@ -120,7 +123,7 @@ func NewChildIfdBuilderTag(ifdPath string, tagId uint16, value *IfdBuilderTagVal
 	return &BuilderTag{
 		ifdPath: ifdPath,
 		tagId:   tagId,
-		typeId:  TypeLong,
+		typeId:  exifcommon.TypeLong,
 		value:   value,
 	}
 }
@@ -135,13 +138,13 @@ func (bt *BuilderTag) String() string {
 	if bt.value.IsBytes() == true {
 		var err error
 
-		valueString, err = Format(bt.value.Bytes(), bt.typeId, false, bt.byteOrder)
+		valueString, err = exifcommon.FormatFromBytes(bt.value.Bytes(), bt.typeId, false, bt.byteOrder)
 		log.PanicIf(err)
 	} else {
 		valueString = fmt.Sprintf("%v", bt.value)
 	}
 
-	return fmt.Sprintf("BuilderTag<IFD-PATH=[%s] TAG-ID=(0x%04x) TAG-TYPE=[%s] VALUE=[%s]>", bt.ifdPath, bt.tagId, TypeNames[bt.typeId], valueString)
+	return fmt.Sprintf("BuilderTag<IFD-PATH=[%s] TAG-ID=(0x%04x) TAG-TYPE=[%s] VALUE=[%s]>", bt.ifdPath, bt.tagId, bt.typeId.String(), valueString)
 }
 
 func (bt *BuilderTag) SetValue(byteOrder binary.ByteOrder, value interface{}) (err error) {
@@ -153,19 +156,24 @@ func (bt *BuilderTag) SetValue(byteOrder binary.ByteOrder, value interface{}) (e
 
 	// TODO(dustin): !! Add test.
 
-	tt := NewTagType(bt.typeId, byteOrder)
-	ve := NewValueEncoder(byteOrder)
+	var ed exifcommon.EncodedData
+	if bt.typeId == exifcommon.TypeUndefined {
+		encodeable := value.(exifundefined.EncodeableValue)
 
-	var ed EncodedData
-	if bt.typeId == TypeUndefined {
-		var err error
-
-		ed, err = EncodeUndefined(bt.ifdPath, bt.tagId, value)
+		encoded, unitCount, err := exifundefined.Encode(encodeable, byteOrder)
 		log.PanicIf(err)
+
+		ed = exifcommon.EncodedData{
+			Type:      exifcommon.TypeUndefined,
+			Encoded:   encoded,
+			UnitCount: unitCount,
+		}
 	} else {
+		ve := exifcommon.NewValueEncoder(byteOrder)
+
 		var err error
 
-		ed, err = ve.EncodeWithType(tt, value)
+		ed, err = ve.Encode(value)
 		log.PanicIf(err)
 	}
 
@@ -177,30 +185,29 @@ func (bt *BuilderTag) SetValue(byteOrder binary.ByteOrder, value interface{}) (e
 // NewStandardBuilderTag constructs a `BuilderTag` instance. The type is looked
 // up. `ii` is the type of IFD that owns this tag.
 func NewStandardBuilderTag(ifdPath string, it *IndexedTag, byteOrder binary.ByteOrder, value interface{}) *BuilderTag {
-	typeId := it.Type
-	tt := NewTagType(typeId, byteOrder)
+	var rawBytes []byte
+	if it.Type == exifcommon.TypeUndefined {
+		encodeable := value.(exifundefined.EncodeableValue)
 
-	ve := NewValueEncoder(byteOrder)
-
-	var ed EncodedData
-	if it.Type == TypeUndefined {
 		var err error
 
-		ed, err = EncodeUndefined(ifdPath, it.Id, value)
+		rawBytes, _, err = exifundefined.Encode(encodeable, byteOrder)
 		log.PanicIf(err)
 	} else {
-		var err error
+		ve := exifcommon.NewValueEncoder(byteOrder)
 
-		ed, err = ve.EncodeWithType(tt, value)
+		ed, err := ve.Encode(value)
 		log.PanicIf(err)
+
+		rawBytes = ed.Encoded
 	}
 
-	tagValue := NewIfdBuilderTagValueFromBytes(ed.Encoded)
+	tagValue := NewIfdBuilderTagValueFromBytes(rawBytes)
 
 	return NewBuilderTag(
 		ifdPath,
 		it.Id,
-		typeId,
+		it.Type,
 		tagValue,
 		byteOrder)
 }
@@ -288,7 +295,7 @@ func NewIfdBuilderWithExistingIfd(ifd *Ifd) (ib *IfdBuilder) {
 	var ifdTagId uint16
 
 	// There is no tag-ID for the root IFD. It will never be a child IFD.
-	if ifdPath != IfdPathStandard {
+	if ifdPath != exifcommon.IfdPathStandard {
 		mi, err := ifd.ifdMapping.GetWithPath(ifdPath)
 		log.PanicIf(err)
 
@@ -311,9 +318,7 @@ func NewIfdBuilderWithExistingIfd(ifd *Ifd) (ib *IfdBuilder) {
 
 // NewIfdBuilderFromExistingChain creates a chain of IB instances from an
 // IFD chain generated from real data.
-func NewIfdBuilderFromExistingChain(rootIfd *Ifd, itevr *IfdTagEntryValueResolver) (firstIb *IfdBuilder) {
-	// OBSOLETE(dustin): Support for `itevr` is now obsolete. This parameter will be removed in the future.
-
+func NewIfdBuilderFromExistingChain(rootIfd *Ifd) (firstIb *IfdBuilder) {
 	var lastIb *IfdBuilder
 	i := 0
 	for thisExistingIfd := rootIfd; thisExistingIfd != nil; thisExistingIfd = thisExistingIfd.NextIfd {
@@ -324,7 +329,7 @@ func NewIfdBuilderFromExistingChain(rootIfd *Ifd, itevr *IfdTagEntryValueResolve
 			lastIb.SetNextIb(newIb)
 		}
 
-		err := newIb.AddTagsFromExisting(thisExistingIfd, nil, nil, nil)
+		err := newIb.AddTagsFromExisting(thisExistingIfd, nil, nil)
 		log.PanicIf(err)
 
 		lastIb = newIb
@@ -523,7 +528,7 @@ func (ib *IfdBuilder) SetThumbnail(data []byte) (err error) {
 		}
 	}()
 
-	if ib.ifdPath != IfdPathStandard {
+	if ib.ifdPath != exifcommon.IfdPathStandard {
 		log.Panicf("thumbnails can only go into a root Ifd (and only the second one)")
 	}
 
@@ -540,7 +545,7 @@ func (ib *IfdBuilder) SetThumbnail(data []byte) (err error) {
 		NewBuilderTag(
 			ib.ifdPath,
 			ThumbnailOffsetTagId,
-			TypeLong,
+			exifcommon.TypeLong,
 			ibtvfb,
 			ib.byteOrder)
 
@@ -1021,14 +1026,12 @@ func (ib *IfdBuilder) NewBuilderTagFromBuilder(childIb *IfdBuilder) (bt *Builder
 // AddTagsFromExisting does a verbatim copy of the entries in `ifd` to this
 // builder. It excludes child IFDs. These must be added explicitly via
 // `AddChildIb()`.
-func (ib *IfdBuilder) AddTagsFromExisting(ifd *Ifd, itevr *IfdTagEntryValueResolver, includeTagIds []uint16, excludeTagIds []uint16) (err error) {
+func (ib *IfdBuilder) AddTagsFromExisting(ifd *Ifd, includeTagIds []uint16, excludeTagIds []uint16) (err error) {
 	defer func() {
 		if state := recover(); state != nil {
 			err = log.Wrap(state.(error))
 		}
 	}()
-
-	// OBSOLETE(dustin): Support for `itevr` is now obsolete. This parameter will be removed in the future.
 
 	thumbnailData, err := ifd.Thumbnail()
 	if err == nil {
@@ -1039,7 +1042,7 @@ func (ib *IfdBuilder) AddTagsFromExisting(ifd *Ifd, itevr *IfdTagEntryValueResol
 	}
 
 	for i, ite := range ifd.Entries {
-		if ite.TagId == ThumbnailOffsetTagId || ite.TagId == ThumbnailSizeTagId {
+		if ite.TagId() == ThumbnailOffsetTagId || ite.TagId() == ThumbnailSizeTagId {
 			// These will be added on-the-fly when we encode.
 			continue
 		}
@@ -1047,7 +1050,7 @@ func (ib *IfdBuilder) AddTagsFromExisting(ifd *Ifd, itevr *IfdTagEntryValueResol
 		if excludeTagIds != nil && len(excludeTagIds) > 0 {
 			found := false
 			for _, excludedTagId := range excludeTagIds {
-				if excludedTagId == ite.TagId {
+				if excludedTagId == ite.TagId() {
 					found = true
 				}
 			}
@@ -1063,7 +1066,7 @@ func (ib *IfdBuilder) AddTagsFromExisting(ifd *Ifd, itevr *IfdTagEntryValueResol
 
 			found := false
 			for _, includedTagId := range includeTagIds {
-				if includedTagId == ite.TagId {
+				if includedTagId == ite.TagId() {
 					found = true
 					break
 				}
@@ -1076,7 +1079,7 @@ func (ib *IfdBuilder) AddTagsFromExisting(ifd *Ifd, itevr *IfdTagEntryValueResol
 
 		var bt *BuilderTag
 
-		if ite.ChildIfdPath != "" {
+		if ite.ChildIfdPath() != "" {
 			// If we want to add an IFD tag, we'll have to build it first and
 			// *then* add it via a different method.
 
@@ -1087,7 +1090,7 @@ func (ib *IfdBuilder) AddTagsFromExisting(ifd *Ifd, itevr *IfdTagEntryValueResol
 			for _, thisChildIfd := range ifd.Children {
 				if thisChildIfd.ParentTagIndex != i {
 					continue
-				} else if thisChildIfd.TagId != 0xffff && thisChildIfd.TagId != ite.TagId {
+				} else if thisChildIfd.TagId != 0xffff && thisChildIfd.TagId != ite.TagId() {
 					log.Panicf("child-IFD tag is not correct: TAG-POSITION=(%d) ITE=%s CHILD-IFD=%s", thisChildIfd.ParentTagIndex, ite, thisChildIfd)
 				}
 
@@ -1101,56 +1104,23 @@ func (ib *IfdBuilder) AddTagsFromExisting(ifd *Ifd, itevr *IfdTagEntryValueResol
 					childTagIds[j] = fmt.Sprintf("0x%04x (parent tag-position %d)", childIfd.TagId, childIfd.ParentTagIndex)
 				}
 
-				log.Panicf("could not find child IFD for child ITE: IFD-PATH=[%s] TAG-ID=(0x%04x) CURRENT-TAG-POSITION=(%d) CHILDREN=%v", ite.IfdPath, ite.TagId, i, childTagIds)
+				log.Panicf("could not find child IFD for child ITE: IFD-PATH=[%s] TAG-ID=(0x%04x) CURRENT-TAG-POSITION=(%d) CHILDREN=%v", ite.IfdPath(), ite.TagId(), i, childTagIds)
 			}
 
-			childIb := NewIfdBuilderFromExistingChain(childIfd, nil)
+			childIb := NewIfdBuilderFromExistingChain(childIfd)
 			bt = ib.NewBuilderTagFromBuilder(childIb)
 		} else {
 			// Non-IFD tag.
 
-			valueContext := ifd.GetValueContext(ite)
-
-			var rawBytes []byte
-
-			if ite.TagType == TypeUndefined {
-				// It's an undefined-type value. Try to process, or skip if
-				// we don't know how to.
-
-				undefinedInterface, err := valueContext.Undefined()
-				if err != nil {
-					if err == ErrUnhandledUnknownTypedTag {
-						// It's an undefined-type tag that we don't handle. If
-						// we don't know how to handle it, we can't know how
-						// many bytes it is and we must skip it.
-						continue
-					}
-
-					log.Panic(err)
-				}
-
-				undefined, ok := undefinedInterface.(UnknownTagValue)
-				if ok != true {
-					log.Panicf("unexpected value returned from undefined-value processor")
-				}
-
-				rawBytes, err = undefined.ValueBytes()
-				log.PanicIf(err)
-			} else {
-				// It's a value with a standard type.
-
-				var err error
-
-				rawBytes, err = valueContext.readRawEncoded()
-				log.PanicIf(err)
-			}
+			rawBytes, err := ite.GetRawBytes()
+			log.PanicIf(err)
 
 			value := NewIfdBuilderTagValueFromBytes(rawBytes)
 
 			bt = NewBuilderTag(
 				ifd.IfdPath,
-				ite.TagId,
-				ite.TagType,
+				ite.TagId(),
+				ite.TagType(),
 				value,
 				ib.byteOrder)
 		}

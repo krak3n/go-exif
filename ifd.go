@@ -6,34 +6,8 @@ import (
 	"strings"
 
 	"github.com/dsoprea/go-logging"
-)
 
-const (
-	// IFD names. The paths that we referred to the IFDs with are comprised of
-	// these.
-
-	IfdStandard = "IFD"
-	IfdExif     = "Exif"
-	IfdGps      = "GPSInfo"
-	IfdIop      = "Iop"
-
-	// Tag IDs for child IFDs.
-
-	IfdExifId = 0x8769
-	IfdGpsId  = 0x8825
-	IfdIopId  = 0xA005
-
-	// Just a placeholder.
-
-	IfdRootId = 0x0000
-
-	// The paths of the standard IFDs expressed in the standard IFD-mappings
-	// and as the group-names in the tag data.
-
-	IfdPathStandard        = "IFD"
-	IfdPathStandardExif    = "IFD/Exif"
-	IfdPathStandardExifIop = "IFD/Exif/Iop"
-	IfdPathStandardGps     = "IFD/GPSInfo"
+	"github.com/dsoprea/go-exif/v2/common"
 )
 
 var (
@@ -391,16 +365,16 @@ func LoadStandardIfds(im *IfdMapping) (err error) {
 		}
 	}()
 
-	err = im.Add([]uint16{}, IfdRootId, IfdStandard)
+	err = im.Add([]uint16{}, exifcommon.IfdRootId, exifcommon.IfdStandard)
 	log.PanicIf(err)
 
-	err = im.Add([]uint16{IfdRootId}, IfdExifId, IfdExif)
+	err = im.Add([]uint16{exifcommon.IfdRootId}, exifcommon.IfdExifId, exifcommon.IfdExif)
 	log.PanicIf(err)
 
-	err = im.Add([]uint16{IfdRootId, IfdExifId}, IfdIopId, IfdIop)
+	err = im.Add([]uint16{exifcommon.IfdRootId, exifcommon.IfdExifId}, exifcommon.IfdIopId, exifcommon.IfdIop)
 	log.PanicIf(err)
 
-	err = im.Add([]uint16{IfdRootId}, IfdGpsId, IfdGps)
+	err = im.Add([]uint16{exifcommon.IfdRootId}, exifcommon.IfdGpsId, exifcommon.IfdGps)
 	log.PanicIf(err)
 
 	return nil

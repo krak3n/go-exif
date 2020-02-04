@@ -1,13 +1,13 @@
-package exif
+package exifcommon
 
 import (
-    "testing"
     "reflect"
+    "testing"
 
     "github.com/dsoprea/go-logging"
 )
 
-func TestByteCycle(t *testing.T) {
+func TestValueEncoder_encodeBytes__Cycle(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
@@ -28,15 +28,15 @@ func TestByteCycle(t *testing.T) {
         t.Fatalf("Unit-count not correct.")
     }
 
-    tt := NewTagType(ed.Type, byteOrder)
-    recovered, err := tt.ParseBytes(ed.Encoded, ed.UnitCount)
+    recovered, err := parser.ParseBytes(ed.Encoded, ed.UnitCount)
+    log.PanicIf(err)
 
     if reflect.DeepEqual(recovered, original) != true {
         t.Fatalf("Value not recovered correctly.")
     }
 }
 
-func TestAsciiCycle(t *testing.T) {
+func TestValueEncoder_encodeAscii__Cycle(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
@@ -61,15 +61,15 @@ func TestAsciiCycle(t *testing.T) {
     // Check that the string was recovered correctly and with the trailing NUL
     // character autostripped.
 
-    tt := NewTagType(TypeAscii, byteOrder)
-    recovered, err := tt.ParseAscii(ed.Encoded, ed.UnitCount)
+    recovered, err := parser.ParseAscii(ed.Encoded, ed.UnitCount)
+    log.PanicIf(err)
 
     if reflect.DeepEqual(recovered, original) != true {
         t.Fatalf("Value not recovered correctly.")
     }
 }
 
-func TestAsciiNoNulCycle(t *testing.T) {
+func TestValueEncoder_encodeAsciiNoNul__Cycle(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
@@ -93,19 +93,19 @@ func TestAsciiNoNulCycle(t *testing.T) {
     // Check that the string was recovered correctly and with the trailing NUL
     // character ignored (because not expected in the context of that type).
 
-    tt := NewTagType(TypeAsciiNoNul, byteOrder)
-    recovered, err := tt.ParseAsciiNoNul(ed.Encoded, ed.UnitCount)
+    recovered, err := parser.ParseAsciiNoNul(ed.Encoded, ed.UnitCount)
+    log.PanicIf(err)
 
     if reflect.DeepEqual(recovered, string(expected)) != true {
         t.Fatalf("Value not recovered correctly.")
     }
 }
 
-func TestShortCycle(t *testing.T) {
+func TestValueEncoder_encodeShorts__Cycle(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
-    original := []uint16 { 0x11, 0x22, 0x33, 0x44, 0x55 }
+    original := []uint16{0x11, 0x22, 0x33, 0x44, 0x55}
 
     ed, err := ve.encodeShorts(original)
     log.PanicIf(err)
@@ -114,7 +114,7 @@ func TestShortCycle(t *testing.T) {
         t.Fatalf("IFD type not expected.")
     }
 
-    expected := []byte {
+    expected := []byte{
         0x00, 0x11,
         0x00, 0x22,
         0x00, 0x33,
@@ -128,19 +128,19 @@ func TestShortCycle(t *testing.T) {
         t.Fatalf("Unit-count not correct.")
     }
 
-    tt := NewTagType(ed.Type, byteOrder)
-    recovered, err := tt.ParseShorts(ed.Encoded, ed.UnitCount)
+    recovered, err := parser.ParseShorts(ed.Encoded, ed.UnitCount, byteOrder)
+    log.PanicIf(err)
 
     if reflect.DeepEqual(recovered, original) != true {
         t.Fatalf("Value not recovered correctly.")
     }
 }
 
-func TestLongCycle(t *testing.T) {
+func TestValueEncoder_encodeLongs__Cycle(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
-    original := []uint32 { 0x11, 0x22, 0x33, 0x44, 0x55 }
+    original := []uint32{0x11, 0x22, 0x33, 0x44, 0x55}
 
     ed, err := ve.encodeLongs(original)
     log.PanicIf(err)
@@ -149,7 +149,7 @@ func TestLongCycle(t *testing.T) {
         t.Fatalf("IFD type not expected.")
     }
 
-    expected := []byte {
+    expected := []byte{
         0x00, 0x00, 0x00, 0x11,
         0x00, 0x00, 0x00, 0x22,
         0x00, 0x00, 0x00, 0x33,
@@ -163,37 +163,37 @@ func TestLongCycle(t *testing.T) {
         t.Fatalf("Unit-count not correct.")
     }
 
-    tt := NewTagType(ed.Type, byteOrder)
-    recovered, err := tt.ParseLongs(ed.Encoded, ed.UnitCount)
+    recovered, err := parser.ParseLongs(ed.Encoded, ed.UnitCount, byteOrder)
+    log.PanicIf(err)
 
     if reflect.DeepEqual(recovered, original) != true {
         t.Fatalf("Value not recovered correctly.")
     }
 }
 
-func TestRationalCycle(t *testing.T) {
+func TestValueEncoder_encodeRationals__Cycle(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
-    original := []Rational {
+    original := []Rational{
         Rational{
-            Numerator: 0x11,
+            Numerator:   0x11,
             Denominator: 0x22,
         },
         Rational{
-            Numerator: 0x33,
+            Numerator:   0x33,
             Denominator: 0x44,
         },
         Rational{
-            Numerator: 0x55,
+            Numerator:   0x55,
             Denominator: 0x66,
         },
         Rational{
-            Numerator: 0x77,
+            Numerator:   0x77,
             Denominator: 0x88,
         },
         Rational{
-            Numerator: 0x99,
+            Numerator:   0x99,
             Denominator: 0x00,
         },
     }
@@ -205,7 +205,7 @@ func TestRationalCycle(t *testing.T) {
         t.Fatalf("IFD type not expected.")
     }
 
-    expected := []byte {
+    expected := []byte{
         0x00, 0x00, 0x00, 0x11,
         0x00, 0x00, 0x00, 0x22,
         0x00, 0x00, 0x00, 0x33,
@@ -224,19 +224,19 @@ func TestRationalCycle(t *testing.T) {
         t.Fatalf("Unit-count not correct.")
     }
 
-    tt := NewTagType(ed.Type, byteOrder)
-    recovered, err := tt.ParseRationals(ed.Encoded, ed.UnitCount)
+    recovered, err := parser.ParseRationals(ed.Encoded, ed.UnitCount, byteOrder)
+    log.PanicIf(err)
 
     if reflect.DeepEqual(recovered, original) != true {
         t.Fatalf("Value not recovered correctly.")
     }
 }
 
-func TestSignedLongCycle(t *testing.T) {
+func TestValueEncoder_encodeSignedLongs__Cycle(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
-    original := []int32 { 0x11, 0x22, 0x33, 0x44, 0x55 }
+    original := []int32{0x11, 0x22, 0x33, 0x44, 0x55}
 
     ed, err := ve.encodeSignedLongs(original)
     log.PanicIf(err)
@@ -245,7 +245,7 @@ func TestSignedLongCycle(t *testing.T) {
         t.Fatalf("IFD type not expected.")
     }
 
-    expected := []byte {
+    expected := []byte{
         0x00, 0x00, 0x00, 0x11,
         0x00, 0x00, 0x00, 0x22,
         0x00, 0x00, 0x00, 0x33,
@@ -259,37 +259,37 @@ func TestSignedLongCycle(t *testing.T) {
         t.Fatalf("Unit-count not correct.")
     }
 
-    tt := NewTagType(ed.Type, byteOrder)
-    recovered, err := tt.ParseSignedLongs(ed.Encoded, ed.UnitCount)
+    recovered, err := parser.ParseSignedLongs(ed.Encoded, ed.UnitCount, byteOrder)
+    log.PanicIf(err)
 
     if reflect.DeepEqual(recovered, original) != true {
         t.Fatalf("Value not recovered correctly.")
     }
 }
 
-func TestSignedRationalCycle(t *testing.T) {
+func TestValueEncoder_encodeSignedRationals__Cycle(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
-    original := []SignedRational {
+    original := []SignedRational{
         SignedRational{
-            Numerator: 0x11,
+            Numerator:   0x11,
             Denominator: 0x22,
         },
         SignedRational{
-            Numerator: 0x33,
+            Numerator:   0x33,
             Denominator: 0x44,
         },
         SignedRational{
-            Numerator: 0x55,
+            Numerator:   0x55,
             Denominator: 0x66,
         },
         SignedRational{
-            Numerator: 0x77,
+            Numerator:   0x77,
             Denominator: 0x88,
         },
         SignedRational{
-            Numerator: 0x99,
+            Numerator:   0x99,
             Denominator: 0x00,
         },
     }
@@ -301,7 +301,7 @@ func TestSignedRationalCycle(t *testing.T) {
         t.Fatalf("IFD type not expected.")
     }
 
-    expected := []byte {
+    expected := []byte{
         0x00, 0x00, 0x00, 0x11,
         0x00, 0x00, 0x00, 0x22,
         0x00, 0x00, 0x00, 0x33,
@@ -320,15 +320,15 @@ func TestSignedRationalCycle(t *testing.T) {
         t.Fatalf("Unit-count not correct.")
     }
 
-    tt := NewTagType(ed.Type, byteOrder)
-    recovered, err := tt.ParseSignedRationals(ed.Encoded, ed.UnitCount)
+    recovered, err := parser.ParseSignedRationals(ed.Encoded, ed.UnitCount, byteOrder)
+    log.PanicIf(err)
 
     if reflect.DeepEqual(recovered, original) != true {
         t.Fatalf("Value not recovered correctly.")
     }
 }
 
-func TestEncode_Byte(t *testing.T) {
+func TestValueEncoder_Encode__Byte(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
@@ -350,7 +350,7 @@ func TestEncode_Byte(t *testing.T) {
     }
 }
 
-func TestEncode_Ascii(t *testing.T) {
+func TestValueEncoder_Encode__Ascii(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
@@ -373,11 +373,11 @@ func TestEncode_Ascii(t *testing.T) {
     }
 }
 
-func TestEncode_Short(t *testing.T) {
+func TestValueEncoder_Encode__Short(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
-    original := []uint16 { 0x11, 0x22, 0x33, 0x44, 0x55 }
+    original := []uint16{0x11, 0x22, 0x33, 0x44, 0x55}
 
     ed, err := ve.Encode(original)
     log.PanicIf(err)
@@ -386,7 +386,7 @@ func TestEncode_Short(t *testing.T) {
         t.Fatalf("IFD type not expected.")
     }
 
-    expected := []byte {
+    expected := []byte{
         0x00, 0x11,
         0x00, 0x22,
         0x00, 0x33,
@@ -401,11 +401,11 @@ func TestEncode_Short(t *testing.T) {
     }
 }
 
-func TestEncode_Long(t *testing.T) {
+func TestValueEncoder_Encode__Long(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
-    original := []uint32 { 0x11, 0x22, 0x33, 0x44, 0x55 }
+    original := []uint32{0x11, 0x22, 0x33, 0x44, 0x55}
 
     ed, err := ve.Encode(original)
     log.PanicIf(err)
@@ -414,7 +414,7 @@ func TestEncode_Long(t *testing.T) {
         t.Fatalf("IFD type not expected.")
     }
 
-    expected := []byte {
+    expected := []byte{
         0x00, 0x00, 0x00, 0x11,
         0x00, 0x00, 0x00, 0x22,
         0x00, 0x00, 0x00, 0x33,
@@ -429,29 +429,29 @@ func TestEncode_Long(t *testing.T) {
     }
 }
 
-func TestEncode_Rational(t *testing.T) {
+func TestValueEncoder_Encode__Rational(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
-    original := []Rational {
+    original := []Rational{
         Rational{
-            Numerator: 0x11,
+            Numerator:   0x11,
             Denominator: 0x22,
         },
         Rational{
-            Numerator: 0x33,
+            Numerator:   0x33,
             Denominator: 0x44,
         },
         Rational{
-            Numerator: 0x55,
+            Numerator:   0x55,
             Denominator: 0x66,
         },
         Rational{
-            Numerator: 0x77,
+            Numerator:   0x77,
             Denominator: 0x88,
         },
         Rational{
-            Numerator: 0x99,
+            Numerator:   0x99,
             Denominator: 0x00,
         },
     }
@@ -463,7 +463,7 @@ func TestEncode_Rational(t *testing.T) {
         t.Fatalf("IFD type not expected.")
     }
 
-    expected := []byte {
+    expected := []byte{
         0x00, 0x00, 0x00, 0x11,
         0x00, 0x00, 0x00, 0x22,
         0x00, 0x00, 0x00, 0x33,
@@ -483,11 +483,11 @@ func TestEncode_Rational(t *testing.T) {
     }
 }
 
-func TestEncode_SignedLong(t *testing.T) {
+func TestValueEncoder_Encode__SignedLong(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
-    original := []int32 { 0x11, 0x22, 0x33, 0x44, 0x55 }
+    original := []int32{0x11, 0x22, 0x33, 0x44, 0x55}
 
     ed, err := ve.Encode(original)
     log.PanicIf(err)
@@ -496,7 +496,7 @@ func TestEncode_SignedLong(t *testing.T) {
         t.Fatalf("IFD type not expected.")
     }
 
-    expected := []byte {
+    expected := []byte{
         0x00, 0x00, 0x00, 0x11,
         0x00, 0x00, 0x00, 0x22,
         0x00, 0x00, 0x00, 0x33,
@@ -511,29 +511,29 @@ func TestEncode_SignedLong(t *testing.T) {
     }
 }
 
-func TestEncode_SignedRational(t *testing.T) {
+func TestValueEncoder_Encode__SignedRational(t *testing.T) {
     byteOrder := TestDefaultByteOrder
     ve := NewValueEncoder(byteOrder)
 
-    original := []SignedRational {
+    original := []SignedRational{
         SignedRational{
-            Numerator: 0x11,
+            Numerator:   0x11,
             Denominator: 0x22,
         },
         SignedRational{
-            Numerator: 0x33,
+            Numerator:   0x33,
             Denominator: 0x44,
         },
         SignedRational{
-            Numerator: 0x55,
+            Numerator:   0x55,
             Denominator: 0x66,
         },
         SignedRational{
-            Numerator: 0x77,
+            Numerator:   0x77,
             Denominator: 0x88,
         },
         SignedRational{
-            Numerator: 0x99,
+            Numerator:   0x99,
             Denominator: 0x00,
         },
     }
@@ -545,7 +545,7 @@ func TestEncode_SignedRational(t *testing.T) {
         t.Fatalf("IFD type not expected.")
     }
 
-    expected := []byte {
+    expected := []byte{
         0x00, 0x00, 0x00, 0x11,
         0x00, 0x00, 0x00, 0x22,
         0x00, 0x00, 0x00, 0x33,

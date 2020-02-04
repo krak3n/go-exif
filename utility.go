@@ -1,71 +1,16 @@
 package exif
 
 import (
-    "bytes"
     "fmt"
     "strconv"
     "strings"
     "time"
 
     "github.com/dsoprea/go-logging"
+
+    "github.com/dsoprea/go-exif/v2/common"
+    "github.com/dsoprea/go-exif/v2/undefined"
 )
-
-func DumpBytes(data []byte) {
-    fmt.Printf("DUMP: ")
-    for _, x := range data {
-        fmt.Printf("%02x ", x)
-    }
-
-    fmt.Printf("\n")
-}
-
-func DumpBytesClause(data []byte) {
-    fmt.Printf("DUMP: ")
-
-    fmt.Printf("[]byte { ")
-
-    for i, x := range data {
-        fmt.Printf("0x%02x", x)
-
-        if i < len(data)-1 {
-            fmt.Printf(", ")
-        }
-    }
-
-    fmt.Printf(" }\n")
-}
-
-func DumpBytesToString(data []byte) string {
-    b := new(bytes.Buffer)
-
-    for i, x := range data {
-        _, err := b.WriteString(fmt.Sprintf("%02x", x))
-        log.PanicIf(err)
-
-        if i < len(data)-1 {
-            _, err := b.WriteRune(' ')
-            log.PanicIf(err)
-        }
-    }
-
-    return b.String()
-}
-
-func DumpBytesClauseToString(data []byte) string {
-    b := new(bytes.Buffer)
-
-    for i, x := range data {
-        _, err := b.WriteString(fmt.Sprintf("0x%02x", x))
-        log.PanicIf(err)
-
-        if i < len(data)-1 {
-            _, err := b.WriteString(", ")
-            log.PanicIf(err)
-        }
-    }
-
-    return b.String()
-}
 
 // ParseExifFullTimestamp parses dates like "2018:11:30 13:01:49" into a UTC
 // `time.Time` struct.
@@ -132,10 +77,10 @@ type ExifTag struct {
     TagId   uint16 `json:"id"`
     TagName string `json:"name"`
 
-    TagTypeId   TagTypePrimitive `json:"type_id"`
-    TagTypeName string           `json:"type_name"`
-    Value       interface{}      `json:"value"`
-    ValueBytes  []byte           `json:"value_bytes"`
+    TagTypeId   exifcommon.TagTypePrimitive `json:"type_id"`
+    TagTypeName string                      `json:"type_name"`
+    Value       interface{}                 `json:"value"`
+    ValueBytes  []byte                      `json:"value_bytes"`
 
     ChildIfdPath string `json:"child_ifd_path"`
 }
@@ -171,7 +116,7 @@ func GetFlatExifData(exifData []byte) (exifTags []ExifTag, err error) {
         for _, ite := range ifd.Entries {
             tagName := ""
 
-            it, err := ti.Get(ifd.IfdPath, ite.TagId)
+            it, err := ti.Get(ifd.IfdPath, ite.TagId())
             if err != nil {
                 // If it's a non-standard tag, just leave the name blank.
                 if log.Is(err, ErrTagNotFound) != true {
@@ -181,29 +126,29 @@ func GetFlatExifData(exifData []byte) (exifTags []ExifTag, err error) {
                 tagName = it.Name
             }
 
-            value, err := ifd.TagValue(ite)
+            valueBytes, err := ite.GetRawBytes()
+            log.PanicIf(err)
+
+            value, err := ite.Value()
             if err != nil {
-                if err == ErrUnhandledUnknownTypedTag {
-                    value = UnparseableUnknownTagValuePlaceholder
+                if err == exifcommon.ErrUnhandledUndefinedTypedTag {
+                    value = exifundefined.UnparseableUnknownTagValuePlaceholder
                 } else {
                     log.Panic(err)
                 }
             }
 
-            valueBytes, err := ifd.TagValueBytes(ite)
-            if err != nil && err != ErrUnhandledUnknownTypedTag {
-                log.Panic(err)
-            }
+            tagType := ite.TagType()
 
             et := ExifTag{
                 IfdPath:      ifd.IfdPath,
-                TagId:        ite.TagId,
+                TagId:        ite.TagId(),
                 TagName:      tagName,
-                TagTypeId:    ite.TagType,
-                TagTypeName:  TypeNames[ite.TagType],
+                TagTypeId:    tagType,
+                TagTypeName:  tagType.String(),
                 Value:        value,
                 ValueBytes:   valueBytes,
-                ChildIfdPath: ite.ChildIfdPath,
+                ChildIfdPath: ite.ChildIfdPath(),
             }
 
             exifTags = append(exifTags, et)

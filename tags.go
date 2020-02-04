@@ -5,6 +5,8 @@ import (
 
 	"github.com/dsoprea/go-logging"
 	"gopkg.in/yaml.v2"
+
+	"github.com/dsoprea/go-exif/v2/common"
 )
 
 const (
@@ -15,7 +17,7 @@ const (
 
 	// Exif
 
-	TagVersionId = 0x0000
+	TagGpsVersionId = 0x0000
 
 	TagLatitudeId     = 0x0002
 	TagLatitudeRefId  = 0x0001
@@ -59,7 +61,7 @@ type IndexedTag struct {
 	Id      uint16
 	Name    string
 	IfdPath string
-	Type    TagTypePrimitive
+	Type    exifcommon.TagTypePrimitive
 }
 
 func (it *IndexedTag) String() string {
@@ -203,7 +205,7 @@ func LoadStandardTags(ti *TagIndex) (err error) {
 				continue
 			}
 
-			tagTypeId, found := TypeNamesR[tagTypeName]
+			tagTypeId, found := exifcommon.GetTypeByName(tagTypeName)
 			if found == false {
 				log.Panicf("type [%s] for [%s] not valid", tagTypeName, tagName)
 				continue
