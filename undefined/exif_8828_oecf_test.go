@@ -5,9 +5,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 
-	"github.com/dsoprea/go-exif/v2/common"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
 )
 
 func TestTag8828Oecf_String(t *testing.T) {

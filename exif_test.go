@@ -2,17 +2,15 @@ package exif
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
 
-	"encoding/binary"
-	"io/ioutil"
-
-	"github.com/dsoprea/go-logging"
-
-	"github.com/dsoprea/go-exif/v2/common"
+	log "github.com/dsoprea/go-logging"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
 )
 
 func TestVisit(t *testing.T) {

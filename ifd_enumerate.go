@@ -2,17 +2,15 @@ package exif
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"encoding/binary"
-
-	"github.com/dsoprea/go-logging"
-
-	"github.com/dsoprea/go-exif/v2/common"
+	log "github.com/dsoprea/go-logging"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
 )
 
 var (

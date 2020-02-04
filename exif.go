@@ -2,14 +2,13 @@ package exif
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 
-	"encoding/binary"
-	"io/ioutil"
-
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 )
 
 const (

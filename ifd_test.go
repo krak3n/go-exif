@@ -6,9 +6,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/dsoprea/go-logging"
-
-	"github.com/dsoprea/go-exif/v2/common"
+	log "github.com/dsoprea/go-logging"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
 )
 
 func TestIfdMapping_Add(t *testing.T) {

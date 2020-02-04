@@ -3,15 +3,13 @@ package exif
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"path"
 	"reflect"
 	"testing"
 
-	"io/ioutil"
-
-	"github.com/dsoprea/go-logging"
-
-	"github.com/dsoprea/go-exif/v2/common"
+	log "github.com/dsoprea/go-logging"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
 )
 
 func TestIfdTagEntry_RawBytes_RealData(t *testing.T) {

@@ -3,9 +3,8 @@ package exifundefined
 import (
 	"encoding/binary"
 
-	"github.com/dsoprea/go-logging"
-
-	"github.com/dsoprea/go-exif/v2/common"
+	log "github.com/dsoprea/go-logging"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
 )
 
 func Encode(value EncodeableValue, byteOrder binary.ByteOrder) (encoded []byte, unitCount uint32, err error) {

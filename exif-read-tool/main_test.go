@@ -2,8 +2,8 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"path"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -11,9 +11,9 @@ import (
 	"io/ioutil"
 	"os/exec"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 
-	"github.com/dsoprea/go-exif/v2/common"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
 )
 
 var (
@@ -35,8 +35,8 @@ func TestMain(t *testing.T) {
 	actual := b.String()
 
 	if err != nil {
-		fmt.Printf(actual)
-		log.Panic(err)
+		t.Log(actual)
+		t.Error(err)
 	}
 
 	expected := `IFD-PATH=[IFD] ID=(0x010f) NAME=[Make] COUNT=(6) TYPE=[ASCII] VALUE=[Canon]
@@ -117,8 +117,8 @@ func TestMainJson(t *testing.T) {
 	actualRaw := b.Bytes()
 
 	if err != nil {
-		fmt.Printf(string(actualRaw))
-		log.Panic(err)
+		t.Log(string(actualRaw))
+		t.Error(err)
 	}
 
 	// Parse actual data.
@@ -146,10 +146,9 @@ func TestMainJson(t *testing.T) {
 }
 
 func init() {
-	moduleRootPath := exifcommon.GetModuleRootPath()
-	assetsPath = path.Join(moduleRootPath, "assets")
+	cwd := exifcommon.GetModuleRootPath()
 
-	appFilepath = path.Join(moduleRootPath, "exif-read-tool", "main.go")
-
-	testImageFilepath = path.Join(assetsPath, "NDM_8901.jpg")
+	assetsPath = filepath.Join(cwd, "..", "assets")
+	appFilepath = filepath.Join(cwd, "main.go")
+	testImageFilepath = filepath.Join(assetsPath, "NDM_8901.jpg")
 }

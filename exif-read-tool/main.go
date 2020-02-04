@@ -21,10 +21,10 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 
-	"github.com/dsoprea/go-exif/v2"
-	"github.com/dsoprea/go-exif/v2/common"
+	"github.com/krak3n/go-exif/v2"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
 )
 
 var (

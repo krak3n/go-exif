@@ -1,8 +1,6 @@
 package exifundefined
 
-import (
-	"github.com/dsoprea/go-logging"
-)
+import log "github.com/dsoprea/go-logging"
 
 type UndefinedTagHandle struct {
 	IfdPath string

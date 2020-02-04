@@ -3,7 +3,7 @@ package exifundefined
 import (
 	"encoding/binary"
 
-	"github.com/dsoprea/go-exif/v2/common"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
 )
 
 const (

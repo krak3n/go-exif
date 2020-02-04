@@ -6,16 +6,14 @@ package exif
 // (*IfdBuilder).SetThumbnail() method instead.
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
 
-	"encoding/binary"
-
-	"github.com/dsoprea/go-logging"
-
-	"github.com/dsoprea/go-exif/v2/common"
-	"github.com/dsoprea/go-exif/v2/undefined"
+	log "github.com/dsoprea/go-logging"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
+	exifundefined "github.com/krak3n/go-exif/v2/undefined"
 )
 
 var (

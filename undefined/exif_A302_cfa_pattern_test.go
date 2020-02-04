@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/dsoprea/go-exif/v2/common"
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
 )
 
 func TestTagA302CfaPattern_String(t *testing.T) {

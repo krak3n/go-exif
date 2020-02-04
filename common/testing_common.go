@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"io/ioutil"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 )
 
 var (
@@ -35,29 +35,7 @@ func GetModuleRootPath() string {
 
 	currentWd, err := os.Getwd()
 	log.PanicIf(err)
-
-	currentPath := currentWd
-	visited := make([]string, 0)
-
-	for {
-		tryStampFilepath := path.Join(currentPath, ".MODULE_ROOT")
-
-		_, err := os.Stat(tryStampFilepath)
-		if err != nil && os.IsNotExist(err) != true {
-			log.Panic(err)
-		} else if err == nil {
-			break
-		}
-
-		visited = append(visited, tryStampFilepath)
-
-		currentPath = path.Dir(currentPath)
-		if currentPath == "/" {
-			log.Panicf("could not find module-root: %v", visited)
-		}
-	}
-
-	return currentPath
+	return currentWd
 }
 
 func getTestAssetsPath() string {

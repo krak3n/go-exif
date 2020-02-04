@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dsoprea/go-exif/v2/common"
-	"github.com/dsoprea/go-exif/v2/undefined"
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
+	exifcommon "github.com/krak3n/go-exif/v2/common"
+	exifundefined "github.com/krak3n/go-exif/v2/undefined"
 )
 
 func TestIfdBuilder_Add(t *testing.T) {

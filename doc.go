@@ -1,4 +1,4 @@
-// exif parses raw EXIF information given a block of raw EXIF data. It can also
+// Package exif parses raw EXIF information given a block of raw EXIF data. It can also
 // construct new EXIF information, and provides tools for doing so. This package
 // is not involved with the parsing of particular file-formats.
 //

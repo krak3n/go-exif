@@ -3,7 +3,7 @@ package exifcommon
 import (
 	"testing"
 
-	"github.com/dsoprea/go-logging"
+	log "github.com/dsoprea/go-logging"
 )
 
 func TestTypeByte_String(t *testing.T) {
